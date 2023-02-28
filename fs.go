@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sagernet/badhttp/http/internal/safefilepath"
+	"github.com/sagernet/badhttp/internal/safefilepath"
 )
 
 // A Dir implements FileSystem using the native file system restricted to a

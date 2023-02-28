@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sagernet/badhttp/http/internal/ascii"
+	"github.com/sagernet/badhttp/internal/ascii"
 )
 
 // A Cookie represents an HTTP cookie as sent in the Set-Cookie header of an

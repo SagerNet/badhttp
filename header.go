@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/badhttp/http/internal/ascii"
+	"github.com/sagernet/badhttp/internal/ascii"
 
 	"golang.org/x/net/http/httpguts"
 )

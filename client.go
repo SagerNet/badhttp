@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sagernet/badhttp/http/internal/ascii"
+	"github.com/sagernet/badhttp/internal/ascii"
 )
 
 // A Client is an HTTP client. Its zero value (DefaultClient) is a

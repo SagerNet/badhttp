@@ -29,7 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sagernet/badhttp/http/internal/ascii"
+	"github.com/sagernet/badhttp/internal/ascii"
+	abstract_tls "github.com/sagernet/sing/common/tls"
 
 	"golang.org/x/net/http/httpguts"
 	"golang.org/x/net/http/httpproxy"
@@ -171,7 +172,7 @@ type Transport struct {
 	// tls.Client.
 	// If nil, the default configuration is used.
 	// If non-nil, HTTP/2 support may not be enabled by default.
-	TLSClientConfig *tls.Config
+	TLSClientConfig abstract_tls.Config
 
 	// TLSHandshakeTimeout specifies the maximum amount of time waiting to
 	// wait for a TLS handshake. Zero means no timeout.
@@ -241,7 +242,7 @@ type Transport struct {
 	// must return a RoundTripper that then handles the request.
 	// If TLSNextProto is not nil, HTTP/2 support is not enabled
 	// automatically.
-	TLSNextProto map[string]func(authority string, c *tls.Conn) RoundTripper
+	TLSNextProto map[string]func(authority string, c abstract_tls.Conn) RoundTripper
 
 	// ProxyConnectHeader optionally specifies headers to send to
 	// proxies during CONNECT requests.
@@ -339,7 +340,7 @@ func (t *Transport) Clone() *Transport {
 		t2.TLSClientConfig = t.TLSClientConfig.Clone()
 	}
 	if !t.tlsNextProtoWasNil {
-		npm := map[string]func(authority string, c *tls.Conn) RoundTripper{}
+		npm := map[string]func(authority string, c abstract_tls.Conn) RoundTripper{}
 		for k, v := range t.TLSNextProto {
 			npm[k] = v
 		}
@@ -1521,15 +1522,18 @@ func (t *Transport) decConnsPerHost(key connectMethodKey) {
 // The remote endpoint's name may be overridden by TLSClientConfig.ServerName.
 func (pconn *persistConn) addTLS(ctx context.Context, name string, trace *httptrace.ClientTrace) error {
 	// Initiate TLS and check remote host name against certificate.
-	cfg := cloneTLSConfig(pconn.t.TLSClientConfig)
-	if cfg.ServerName == "" {
-		cfg.ServerName = name
+	cfg := pconn.t.TLSClientConfig.Clone()
+	if cfg.ServerName() == "" {
+		cfg.SetServerName(name)
 	}
 	if pconn.cacheKey.onlyH1 {
-		cfg.NextProtos = nil
+		cfg.SetNextProtos(nil)
 	}
 	plainConn := pconn.conn
-	tlsConn := tls.Client(plainConn, cfg)
+	tlsConn, err := cfg.Client(plainConn)
+	if err != nil {
+		return err
+	}
 	errc := make(chan error, 2)
 	var timer *time.Timer // for canceling TLS handshake
 	if d := pconn.t.TLSHandshakeTimeout; d != 0 {
@@ -1591,7 +1595,7 @@ func (t *Transport) dialConn(ctx context.Context, cm connectMethod) (pconn *pers
 		if err != nil {
 			return nil, wrapErr(err)
 		}
-		if tc, ok := pconn.conn.(*tls.Conn); ok {
+		if tc, ok := pconn.conn.(abstract_tls.Conn); ok {
 			// Handshake here, in case DialTLS didn't. TLSNextProto below
 			// depends on it for knowing the connection state.
 			if trace != nil && trace.TLSHandshakeStart != nil {
@@ -1750,7 +1754,7 @@ func (t *Transport) dialConn(ctx context.Context, cm connectMethod) (pconn *pers
 
 	if s := pconn.tlsState; s != nil && s.NegotiatedProtocolIsMutual && s.NegotiatedProtocol != "" {
 		if next, ok := t.TLSNextProto[s.NegotiatedProtocol]; ok {
-			alt := next(cm.targetAddr, pconn.conn.(*tls.Conn))
+			alt := next(cm.targetAddr, pconn.conn.(abstract_tls.Conn))
 			if e, ok := alt.(erringRoundTripper); ok {
 				// pconn.conn was closed by next (http2configureTransports.upgradeFn).
 				return nil, e.RoundTripErr()

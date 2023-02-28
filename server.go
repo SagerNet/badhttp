@@ -29,6 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	aTLS "github.com/sagernet/sing/common/tls"
+
 	"golang.org/x/net/http/httpguts"
 )
 
@@ -258,7 +260,7 @@ type conn struct {
 	cancelCtx context.CancelFunc
 
 	// rwc is the underlying network connection.
-	// This is never wrapped by other types and is the value given out
+	// This is never wrapped by otherK types and is the value given out
 	// to CloseNotifier callers. It is usually of type *net.TCPConn or
 	// *tls.Conn.
 	rwc net.Conn
@@ -1866,7 +1868,7 @@ func (c *conn) serve(ctx context.Context) {
 		}
 	}()
 
-	if tlsConn, ok := c.rwc.(*tls.Conn); ok {
+	if tlsConn, ok := c.rwc.(aTLS.Conn); ok {
 		tlsTO := c.server.tlsHandshakeTimeout()
 		if tlsTO > 0 {
 			dl := time.Now().Add(tlsTO)
@@ -2618,7 +2620,7 @@ type Server struct {
 	// tls.Config.SetSessionTicketKeys. To use
 	// SetSessionTicketKeys, use Server.Serve with a TLS Listener
 	// instead.
-	TLSConfig *tls.Config
+	TLSConfig aTLS.ServerConfig
 
 	// ReadTimeout is the maximum duration for reading the entire
 	// request, including the body. A zero or negative value means
@@ -2667,7 +2669,7 @@ type Server struct {
 	// automatically closed when the function returns.
 	// If TLSNextProto is not nil, HTTP/2 support is not enabled
 	// automatically.
-	TLSNextProto map[string]func(*Server, *tls.Conn, Handler)
+	TLSNextProto map[string]func(*Server, aTLS.Conn, Handler)
 
 	// ConnState specifies an optional callback function that is
 	// called when a client connection changes state. See the
@@ -3007,7 +3009,7 @@ func (srv *Server) shouldConfigureHTTP2ForServe() bool {
 	// passed this tls.Config to tls.NewListener. And if they did,
 	// it's too late anyway to fix it. It would only be potentially racy.
 	// See Issue 15908.
-	return strSliceContains(srv.TLSConfig.NextProtos, http2NextProtoTLS)
+	return strSliceContains(srv.TLSConfig.NextProtos(), http2NextProtoTLS)
 }
 
 // ErrServerClosed is returned by the Server's Serve, ServeTLS, ListenAndServe,
@@ -3108,22 +3110,12 @@ func (srv *Server) ServeTLS(l net.Listener, certFile, keyFile string) error {
 		return err
 	}
 
-	config := cloneTLSConfig(srv.TLSConfig)
-	if !strSliceContains(config.NextProtos, "http/1.1") {
-		config.NextProtos = append(config.NextProtos, "http/1.1")
+	config := srv.TLSConfig.Clone()
+	if !strSliceContains(config.NextProtos(), "http/1.1") {
+		config.SetNextProtos(append(config.NextProtos(), "http/1.1"))
 	}
 
-	configHasCert := len(config.Certificates) > 0 || config.GetCertificate != nil
-	if !configHasCert || certFile != "" || keyFile != "" {
-		var err error
-		config.Certificates = make([]tls.Certificate, 1)
-		config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	tlsListener := tls.NewListener(l, config)
+	tlsListener := aTLS.NewListener(l, config.(aTLS.ServerConfig))
 	return srv.Serve(tlsListener)
 }
 
@@ -3519,7 +3511,7 @@ func (globalOptionsHandler) ServeHTTP(w ResponseWriter, r *Request) {
 // Requests come from ALPN protocol handlers.
 type initALPNRequest struct {
 	ctx context.Context
-	c   *tls.Conn
+	c   aTLS.Conn
 	h   serverHandler
 }
 

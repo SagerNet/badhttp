@@ -1,3 +1,5 @@
+github.com/sagernet/sing v0.1.8-0.20230228034829-bb617490652c h1:+YUwfoIkKlMi3Y1QrOy+OlIELC9KWV0+/5F3NX72q8U=
+github.com/sagernet/sing v0.1.8-0.20230228034829-bb617490652c/go.mod h1:jt1w2u7lJQFFSGLiRrRIs5YWmx4kAPfWuOejuDW9qMk=
 golang.org/x/net v0.7.0 h1:rJrUqqhjsgNp7KqAIc25s9pZnjU7TUcSY7HcVZjdn1g=
 golang.org/x/net v0.7.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
 golang.org/x/text v0.7.0 h1:4BRB4x83lYWy72KwLD/qYDuTu7q9PjSagHvijDw7cLo=
